@@ -8,17 +8,20 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
+
 public class MySerialServer implements Server {
+	public static Object lock = new Object();
+	private int port;
+	private ClientHandler ch;
+	private volatile boolean stop;
 	
 	public MySerialServer(int port) {
 		super();
 		this.port = port;
 		this.stop = false;
 	}
-
-	private int port;
-	private ClientHandler ch;
-	private volatile boolean stop;
 
 	private void runServer(){
 		ServerSocket server;
@@ -30,16 +33,15 @@ public class MySerialServer implements Server {
 			InputStream in = aClient.getInputStream();
 			OutputStream out = aClient.getOutputStream();
 			while(!this.stop){
-					ch.handleClient(in, out);
-					in.close();
-					out.close();
-					aClient.close();
-					try {
-						Thread.sleep(2000);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+				synchronized (lock) {
+						try {
+							lock.wait();
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
 					}
+					ch.handleClient(in, out);
 			}
 			server.close();
 			

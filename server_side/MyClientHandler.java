@@ -160,13 +160,6 @@ public class MyClientHandler implements ClientHandler{
 		}
 		writer.println(sol);
 		writer.flush();
-		try {
-			in.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		writer.close();
 	}
 
 	@SuppressWarnings("rawtypes")
