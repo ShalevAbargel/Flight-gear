@@ -7,21 +7,26 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Observable;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import interpreter.MyInterpreter;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import test.TestSetter;
 import viewModel.viewModel;
 
 public class model extends Observable {
 	public StringProperty path;
 	viewModel vm;
-	private static Socket client;
-	private static PrintWriter out;
-	private static BufferedReader in;
+	public static Socket client;
+	public static PrintWriter out;
+	public static BufferedReader in;
 	private MyInterpreter interpreter;
 	public BooleanProperty alert;
 	public BooleanProperty isDataServerConnected;
@@ -29,6 +34,7 @@ public class model extends Observable {
 	private Thread autoPilotThread;
 	private boolean isAutoPilotOn;
 	private boolean isAutoPilotNow;
+	public BlockingQueue<pathCalculator> bq;
 
 	public model(viewModel vm) {
 		this.vm = vm;
@@ -38,6 +44,7 @@ public class model extends Observable {
 		this.addObserver(vm);
 		this.isAutoPilotOn = false;
 		this.isAutoPilotNow = false;
+		this.bq = new LinkedBlockingQueue<pathCalculator>();
 	}
 
 	// open data server
@@ -48,7 +55,7 @@ public class model extends Observable {
 		interpreter.interpret(line);
 	}
 
-	// open data server
+
 	public void sendCommand(String command) {
 		interpreter.commandsQueue.add(command);
 	}
@@ -72,10 +79,8 @@ public class model extends Observable {
 	}
 
 	// connect to path calculator server
-	public void connectToCalcServer(String ip, int port, int[][] matrix, int startX, int startY, int destX, int destY) {
-		// this.addObserver(vm);
+	public void connectToCalcServer(String ip, int port) {
 		try {
-			int i = 0, j = 0;
 			TestSetter.runServer(port);
 			try {
 				Thread.sleep(1000);
@@ -86,48 +91,31 @@ public class model extends Observable {
 			client.setSoTimeout(20000);
 			out = new PrintWriter(client.getOutputStream());
 			in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-			this.calc(matrix, startX, startY, destX, destY);
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
 			System.out.println("Calc sever is not open");
 		}
 	}
-
+	
 	// calculate the path to destination
-	public void calc(int[][] matrix, int startX, int startY, int destX, int destY) {
-		int i, j;
-		for (i = 0; i < matrix.length; i++) {
-			for (j = 0; j < matrix[i].length - 1; j++) {
-				out.print(matrix[i][j] + ",");
+	public void pathCalc() throws IOException {
+		while(true)
+		{
+			pathCalculator pc;
+			try {
+				pc = this.bq.take();
+				String sol = pc.calc(this,out, in);
+				path.setValue(sol);
+				this.setChanged();
+				this.notifyObservers(path);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
-			out.println(matrix[i][j]);
 		}
-		out.println("end");
-		out.println(startX + "," + startY);
-		out.println(destY + "," + destX);
-		out.flush();
-		try {
-			Thread.sleep(2000);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		String sol;
-		try {
-			sol = in.readLine();
-			path.setValue(sol);
-			TestSetter.stopServer();
-			in.close();
-			out.close();
-			client.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		this.setChanged();
-		this.notifyObservers(path);
 	}
+	
 
 	// start autopilot
 	public void autoPilot(String[] lines) {
