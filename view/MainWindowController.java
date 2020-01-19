@@ -6,7 +6,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Observable;
 import java.util.Observer;
@@ -40,6 +43,7 @@ import javafx.scene.paint.Paint;
 import javafx.scene.shape.Circle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import test.TestSetter;
 import viewModel.viewModel;
 
 public class MainWindowController implements Initializable, Observer {
@@ -75,13 +79,16 @@ public class MainWindowController implements Initializable, Observer {
 	DoubleProperty startX, startY;
 	@FXML
 	public MapDisplayer mapDisplayer;
-	private static boolean connect;
+	public static boolean connect;
 	private static boolean isConnected = false;
 	private static boolean loadData = false;
 	StringProperty path;
 	BooleanProperty alert;
 	BooleanProperty isDataServerConnected;
 	private boolean isManual;
+	private boolean calculatorServerIsConnected = false;
+	private boolean serverIsOpen = false;
+
 
 	public MainWindowController() {
 		this.mapDisplayer = new MapDisplayer();
@@ -125,48 +132,61 @@ public class MainWindowController implements Initializable, Observer {
 			stage.setScene(new Scene(root));
 			stage.show();
 		} catch (IOException e) {
-
 			e.printStackTrace();
 		}
 	}
 
 	// connect to calculator server
 	public void connectTOCalcServer() {
-		this.viewModel.markX.bindBidirectional(this.markXForCalc);
-		this.viewModel.markY.bindBidirectional(this.markYForCalc);
-		startX.bindBidirectional(this.viewModel.startX);
-		startY.bindBidirectional(this.viewModel.startY);
-		this.connect = false;
-		Parent root = null;
-		Stage stage = new Stage();
-		try {
-			FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("PopUp.fxml"));
-			root = fxmlLoader.load();
-			MainWindowController mwc = fxmlLoader.getController();
-			mwc.viewModel = this.viewModel;
-			mwc.mapDisplayer = this.mapDisplayer;
-			stage.setTitle("Popup");
-			stage.setScene(new Scene(root));
-			stage.show();
-		} catch (IOException e) {
-
-			e.printStackTrace();
+		if(!this.calculatorServerIsConnected) {
+			this.calculatorServerIsConnected = true;
+			this.viewModel.markX.bindBidirectional(this.markXForCalc);
+			this.viewModel.markY.bindBidirectional(this.markYForCalc);
+			startX.bindBidirectional(this.viewModel.startX);
+			startY.bindBidirectional(this.viewModel.startY);
+			this.connect = false;
+			Parent root = null;
+			Stage stage = new Stage();
+			try {
+				FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("PopUp.fxml"));
+				root = fxmlLoader.load();
+				MainWindowController mwc = fxmlLoader.getController();
+				mwc.viewModel = this.viewModel;
+				mwc.mapDisplayer = this.mapDisplayer;
+				stage.setTitle("Popup");
+				stage.setScene(new Scene(root));
+				stage.show();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		else {
+			Alert alert = new Alert(AlertType.ERROR);
+			alert.setTitle("Error Dialog");
+			alert.setHeaderText("You already connected to calculator server");
+			alert.setContentText("Please continue");
+			alert.showAndWait();
 		}
 	}
 
 	public void submit() {
+		Stage stage = (Stage) submit.getScene().getWindow();
 		this.viewModel.isDataServerConnected.bindBidirectional(this.isDataServerConnected);
 		this.viewModel.ip.bindBidirectional(ip.textProperty());
 		this.viewModel.port.bindBidirectional(port.textProperty());
 		if (connect)
+		{
+			stage.close();
 			this.viewModel.connect();
+		}
 		else {
 			isConnected = true;
 			this.viewModel.path.bindBidirectional(this.path);
+			stage.close();
 			this.viewModel.connectToCalcServer(this.mapDisplayer.mapData);
-			this.drawPath();
 		}
 	}
+
 
 	// load csv file to canvas
 	public void loadData() throws IOException {
@@ -212,9 +232,16 @@ public class MainWindowController implements Initializable, Observer {
 			}
 			if (isConnected) {
 				this.viewModel.path.bindBidirectional(this.path);
-				viewModel.connectToCalcServer(mapDisplayer.mapData);
+				viewModel.calcPath(mapDisplayer.mapData);
+				try {
+					Thread.sleep(3000);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 				this.drawPath();
 			}
+			
 		}
 	}
 
@@ -317,7 +344,19 @@ public class MainWindowController implements Initializable, Observer {
 	}
 
 	public void openServer() {
-		this.viewModel.openServer();
+		if(!this.serverIsOpen)
+		{
+			this.serverIsOpen = true;
+			this.viewModel.openServer();	
+		}
+		else
+		{
+			Alert alert = new Alert(AlertType.ERROR);
+			alert.setTitle("Error Dialog");
+			alert.setHeaderText("You already connected to server");
+			alert.setContentText("Please continue");
+			alert.showAndWait();
+		}
 	}
 
 	private void AutoPilot() {
