@@ -1,5 +1,7 @@
 package viewModel;
 
+import java.io.IOException;
+import java.net.UnknownHostException;
 import java.util.Observable;
 import java.util.Observer;
 
@@ -10,6 +12,7 @@ import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import model.model;
+import model.pathCalculator;
 import view.MainWindowController;
 import view.MapDisplayer;
 
@@ -54,14 +57,25 @@ public class viewModel extends Observable implements Observer{
 		this.model.openServer();
 	}
 	public void connect() {
-
 			this.model.connectToServer(ip.getValue(), Integer.parseInt(port.getValue()));	
-
 	}
 	
 	public void connectToCalcServer(int[][] arr) {
-			this.model.connectToCalcServer(ip.getValue(), Integer.parseInt(port.getValue()),arr,(int)startX.doubleValue(),(int)startY.doubleValue(),(int)markX.doubleValue(),(int)markY.doubleValue());	
+			this.model.connectToCalcServer(ip.getValue(), Integer.parseInt(port.getValue()));	
+			new Thread(()->{
+				try {
+					model.pathCalc();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}).start();
 	}
+	
+	
+	public void calcPath(int[][] arr) {
+		this.model.bq.add(new pathCalculator(arr, (int)startX.doubleValue(),(int)startY.doubleValue(),(int)markX.doubleValue(),(int)markY.doubleValue()));
+}
 
 	public void autoPilot(String[] lines) {
 		this.model.autoPilot(lines);
